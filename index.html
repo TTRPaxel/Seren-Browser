@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Seren Browser — Privacy, by default.</title>
+<meta name="description" content="A lightweight, privacy-focused browser built with Python. No telemetry. No corporate search. Just browsing.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+/* ── Reset & Base ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #07070d;
+  --surface:   rgba(255,255,255,0.04);
+  --border:    rgba(255,255,255,0.08);
+  --border-hi: rgba(120,120,255,0.3);
+  --text:      #ddddf0;
+  --muted:     #484860;
+  --accent:    #6666dd;
+  --accent-lo: rgba(90,90,200,0.15);
+  --glow:      rgba(80,80,200,0.25);
+  --font-head: 'Syne', sans-serif;
+  --font-body: 'DM Sans', sans-serif;
+  --font-mono: 'DM Mono', monospace;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.6;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Noise texture overlay ── */
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E");
+  opacity: 0.025;
+  pointer-events: none;
+}
+
+/* ── Background blobs ── */
+.bg-blobs {
+  position: fixed; inset: 0; z-index: 0;
+  pointer-events: none; overflow: hidden;
+}
+.blob {
+  position: absolute; border-radius: 50%;
+  filter: blur(100px); opacity: 0.12;
+}
+.blob-1 { width: 700px; height: 700px; background: #2a2a9a; top: -300px; left: -200px; animation: drift1 25s ease-in-out infinite alternate; }
+.blob-2 { width: 500px; height: 500px; background: #0a3a6a; top: 30%; right: -150px; animation: drift2 30s ease-in-out infinite alternate; }
+.blob-3 { width: 400px; height: 400px; background: #3a1a6a; bottom: -100px; left: 25%; animation: drift3 20s ease-in-out infinite alternate; }
+.blob-4 { width: 300px; height: 300px; background: #1a4a5a; top: 60%; left: 10%; animation: drift1 35s ease-in-out infinite alternate-reverse; }
+
+@keyframes drift1 { to { transform: translate(60px, 40px) scale(1.1); } }
+@keyframes drift2 { to { transform: translate(-40px, 60px) scale(0.95); } }
+@keyframes drift3 { to { transform: translate(30px, -50px) scale(1.05); } }
+
+/* ── Layout ── */
+.container { max-width: 1080px; margin: 0 auto; padding: 0 32px; position: relative; z-index: 1; }
+
+/* ── Nav ── */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  padding: 0 32px;
+  background: rgba(7,7,13,0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+}
+.nav-inner {
+  max-width: 1080px; margin: 0 auto;
+  display: flex; align-items: center; justify-content: space-between;
+  height: 60px;
+}
+.nav-logo {
+  font-family: var(--font-head);
+  font-size: 18px; font-weight: 700;
+  color: var(--text); text-decoration: none;
+  letter-spacing: -0.3px;
+}
+.nav-logo span { color: var(--accent); }
+.nav-links { display: flex; gap: 32px; }
+.nav-links a {
+  color: var(--muted); text-decoration: none;
+  font-size: 13px; font-weight: 500;
+  letter-spacing: 0.3px;
+  transition: color 0.2s;
+}
+.nav-links a:hover { color: var(--text); }
+.nav-cta {
+  background: var(--accent-lo);
+  color: #a0a0ff !important;
+  border: 1px solid var(--border-hi);
+  border-radius: 8px;
+  padding: 6px 16px !important;
+  transition: background 0.2s, border-color 0.2s !important;
+}
+.nav-cta:hover {
+  background: rgba(90,90,200,0.25) !important;
+  color: #c0c0ff !important;
+}
+
+/* ── Sections ── */
+section { padding: 120px 0; }
+
+/* ── Hero ── */
+#hero {
+  min-height: 100vh;
+  display: flex; align-items: center;
+  padding: 140px 0 80px;
+}
+.hero-inner { max-width: 720px; }
+
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--accent-lo);
+  border: 1px solid var(--border-hi);
+  border-radius: 100px;
+  padding: 5px 14px;
+  font-size: 11px; font-weight: 500;
+  color: #8888cc; letter-spacing: 0.8px;
+  text-transform: uppercase;
+  margin-bottom: 32px;
+  animation: fadeUp 0.6s ease both;
+}
+.hero-badge::before {
+  content: '';
+  width: 6px; height: 6px;
+  background: #6666dd; border-radius: 50%;
+  box-shadow: 0 0 8px #6666dd;
+  animation: pulse 2s ease infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+h1 {
+  font-family: var(--font-head);
+  font-size: clamp(48px, 7vw, 80px);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -2px;
+  color: #eeeeff;
+  margin-bottom: 24px;
+  animation: fadeUp 0.6s 0.1s ease both;
+}
+h1 em {
+  font-style: normal;
+  background: linear-gradient(135deg, #8888ff 0%, #4444cc 50%, #aaaaff 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.hero-sub {
+  font-size: 18px; font-weight: 300;
+  color: #7070a0; line-height: 1.7;
+  max-width: 520px;
+  margin-bottom: 48px;
+  animation: fadeUp 0.6s 0.2s ease both;
+}
+
+.hero-actions {
+  display: flex; gap: 14px; flex-wrap: wrap;
+  animation: fadeUp 0.6s 0.3s ease both;
+}
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  text-decoration: none; font-family: var(--font-body);
+  font-size: 14px; font-weight: 500;
+  border-radius: 12px; padding: 12px 24px;
+  transition: all 0.2s; cursor: pointer; border: none;
+}
+.btn-primary {
+  background: linear-gradient(135deg, #4444bb, #6666dd);
+  color: #e0e0ff;
+  box-shadow: 0 4px 24px rgba(80,80,200,0.3);
+}
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 32px rgba(80,80,200,0.4);
+}
+.btn-ghost {
+  background: var(--surface);
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+.btn-ghost:hover {
+  background: rgba(255,255,255,0.07);
+  color: var(--text);
+  border-color: rgba(255,255,255,0.15);
+}
+
+.hero-stats {
+  display: flex; gap: 48px; margin-top: 72px;
+  padding-top: 48px;
+  border-top: 1px solid var(--border);
+  animation: fadeUp 0.6s 0.4s ease both;
+}
+.stat-num {
+  font-family: var(--font-head);
+  font-size: 28px; font-weight: 700;
+  color: #c0c0f0;
+}
+.stat-label {
+  font-size: 12px; color: var(--muted);
+  margin-top: 2px; letter-spacing: 0.3px;
+}
+
+/* ── Section headers ── */
+.section-tag {
+  font-size: 10px; font-weight: 600;
+  letter-spacing: 2.5px; text-transform: uppercase;
+  color: var(--accent); margin-bottom: 16px;
+}
+h2 {
+  font-family: var(--font-head);
+  font-size: clamp(32px, 4vw, 48px);
+  font-weight: 700; line-height: 1.1;
+  letter-spacing: -1px; color: #eeeeff;
+  margin-bottom: 16px;
+}
+.section-sub {
+  font-size: 16px; color: #555570;
+  max-width: 480px; line-height: 1.7;
+  margin-bottom: 64px;
+}
+
+/* ── Privacy section ── */
+#privacy { border-top: 1px solid var(--border); }
+
+.privacy-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.privacy-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 32px;
+  transition: border-color 0.2s, background 0.2s, transform 0.2s;
+  position: relative; overflow: hidden;
+}
+.privacy-card::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(135deg, var(--glow) 0%, transparent 60%);
+  opacity: 0; transition: opacity 0.3s;
+  border-radius: inherit;
+}
+.privacy-card:hover { border-color: var(--border-hi); transform: translateY(-2px); }
+.privacy-card:hover::before { opacity: 1; }
+.privacy-card.wide { grid-column: 1 / -1; }
+
+.card-icon {
+  width: 44px; height: 44px;
+  background: var(--accent-lo);
+  border: 1px solid var(--border-hi);
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; margin-bottom: 20px;
+}
+.card-title {
+  font-family: var(--font-head);
+  font-size: 17px; font-weight: 600;
+  color: #d8d8f0; margin-bottom: 10px;
+}
+.card-body {
+  font-size: 13px; color: #44445a;
+  line-height: 1.7;
+}
+.card-tag {
+  display: inline-block;
+  margin-top: 16px;
+  background: rgba(255,60,60,0.08);
+  border: 1px solid rgba(255,60,60,0.15);
+  color: #aa5555; border-radius: 6px;
+  padding: 3px 10px; font-size: 10px;
+  font-weight: 600; letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+.card-tag.always { background: rgba(60,200,100,0.08); border-color: rgba(60,200,100,0.15); color: #449966; }
+
+/* ── Philosophy section ── */
+#philosophy { border-top: 1px solid var(--border); }
+
+.philosophy-layout {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: start;
+}
+.philosophy-text p {
+  font-size: 15px; color: #505068; line-height: 1.8;
+  margin-bottom: 20px;
+}
+.philosophy-text p strong { color: #9090cc; font-weight: 500; }
+
+.philosophy-principles { display: flex; flex-direction: column; gap: 4px; }
+.principle {
+  display: flex; align-items: flex-start; gap: 16px;
+  padding: 20px;
+  border-radius: 14px;
+  border: 1px solid transparent;
+  transition: background 0.2s, border-color 0.2s;
+}
+.principle:hover {
+  background: var(--surface);
+  border-color: var(--border);
+}
+.principle-num {
+  font-family: var(--font-mono);
+  font-size: 11px; color: var(--accent);
+  opacity: 0.6; margin-top: 2px; flex-shrink: 0;
+  width: 24px;
+}
+.principle-title {
+  font-family: var(--font-head);
+  font-size: 14px; font-weight: 600;
+  color: #c0c0e0; margin-bottom: 4px;
+}
+.principle-body { font-size: 12px; color: #404058; line-height: 1.6; }
+
+/* ── Getting started ── */
+#install { border-top: 1px solid var(--border); }
+
+.install-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: start; }
+
+.steps { display: flex; flex-direction: column; gap: 0; }
+.step {
+  display: flex; gap: 20px;
+  padding: 24px 0;
+  border-bottom: 1px solid var(--border);
+}
+.step:last-child { border-bottom: none; }
+.step-num {
+  width: 32px; height: 32px; flex-shrink: 0;
+  background: var(--accent-lo);
+  border: 1px solid var(--border-hi);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono); font-size: 12px;
+  color: var(--accent); margin-top: 2px;
+}
+.step-title {
+  font-family: var(--font-head);
+  font-size: 15px; font-weight: 600;
+  color: #c8c8e8; margin-bottom: 6px;
+}
+.step-body { font-size: 13px; color: #404058; line-height: 1.6; }
+
+.code-block {
+  background: rgba(0,0,0,0.4);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+  position: sticky; top: 80px;
+}
+.code-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255,255,255,0.02);
+}
+.code-dots { display: flex; gap: 6px; }
+.code-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+}
+.code-dot:nth-child(1) { background: #ff5f57; }
+.code-dot:nth-child(2) { background: #ffbd2e; }
+.code-dot:nth-child(3) { background: #28c840; }
+.code-label { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+.code-body {
+  padding: 24px;
+  font-family: var(--font-mono);
+  font-size: 13px; line-height: 2;
+  color: #8888aa;
+}
+.code-body .comment { color: #333350; }
+.code-body .cmd { color: #9090dd; }
+.code-body .out { color: #448844; }
+.code-body .prompt { color: #444466; margin-right: 8px; }
+
+/* ── FAQ ── */
+#faq { border-top: 1px solid var(--border); }
+
+.faq-list { display: flex; flex-direction: column; gap: 4px; max-width: 700px; }
+.faq-item {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+.faq-item:hover { border-color: rgba(100,100,200,0.2); }
+.faq-q {
+  width: 100%; background: none; border: none;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 24px; cursor: pointer;
+  font-family: var(--font-body); font-size: 14px; font-weight: 500;
+  color: #c0c0e0; text-align: left;
+  transition: color 0.2s;
+}
+.faq-q:hover { color: #e0e0ff; }
+.faq-chevron {
+  color: var(--muted); font-size: 18px; flex-shrink: 0;
+  transition: transform 0.25s, color 0.2s;
+  margin-left: 16px;
+}
+.faq-item.open .faq-chevron { transform: rotate(45deg); color: var(--accent); }
+.faq-a {
+  max-height: 0; overflow: hidden;
+  transition: max-height 0.3s ease, padding 0.3s;
+  padding: 0 24px;
+  font-size: 13px; color: #404058; line-height: 1.8;
+}
+.faq-item.open .faq-a { max-height: 300px; padding: 0 24px 20px; }
+
+/* ── Footer ── */
+footer {
+  border-top: 1px solid var(--border);
+  padding: 48px 0;
+  position: relative; z-index: 1;
+}
+.footer-inner {
+  max-width: 1080px; margin: 0 auto; padding: 0 32px;
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 16px;
+}
+.footer-logo {
+  font-family: var(--font-head);
+  font-size: 16px; font-weight: 700; color: #44445a;
+}
+.footer-logo span { color: #33336a; }
+.footer-copy { font-size: 12px; color: #22223a; }
+.footer-links { display: flex; gap: 24px; }
+.footer-links a { font-size: 12px; color: #22223a; text-decoration: none; transition: color 0.2s; }
+.footer-links a:hover { color: var(--muted); }
+
+/* ── Animations ── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.reveal {
+  opacity: 0; transform: translateY(24px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+.reveal.visible { opacity: 1; transform: translateY(0); }
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #1a1a2a; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #2a2a3a; }
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .privacy-grid { grid-template-columns: 1fr; }
+  .privacy-card.wide { grid-column: 1; }
+  .philosophy-layout { grid-template-columns: 1fr; gap: 40px; }
+  .install-layout { grid-template-columns: 1fr; }
+  .hero-stats { gap: 32px; flex-wrap: wrap; }
+  .nav-links { display: none; }
+  .code-block { position: static; }
+}
+</style>
+</head>
+<body>
+
+<div class="bg-blobs">
+  <div class="blob blob-1"></div>
+  <div class="blob blob-2"></div>
+  <div class="blob blob-3"></div>
+  <div class="blob blob-4"></div>
+</div>
+
+<!-- Nav -->
+<nav>
+  <div class="nav-inner">
+    <a href="#" class="nav-logo">Seren<span>.</span></a>
+    <div class="nav-links">
+      <a href="#privacy">Privacy</a>
+      <a href="#philosophy">Philosophy</a>
+      <a href="#install">Install</a>
+      <a href="#faq">FAQ</a>
+      <a href="https://github.com/TTRPaxel" class="nav-cta">Paxel's GitHub →</a>
+    </div>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section id="hero">
+  <div class="container">
+    <div class="hero-inner">
+      <div class="hero-badge">Open source · Built with Python</div>
+      <h1>Browse with<br><em>nothing to hide.</em></h1>
+      <p class="hero-sub">
+        Seren is a privacy-first browser built in Python. No telemetry.
+        No corporate search engine. No fingerprinting. Just the web, on your terms.
+      </p>
+      <div class="hero-actions">
+        <a href="#install" class="btn btn-primary">
+          ↓ &nbsp;Get Seren
+        </a>
+        <a href="https://github.com/TTRPaxel/Seren-Browser" class="btn btn-ghost">
+          View on GitHub
+        </a>
+      </div>
+      <div class="hero-stats">
+        <div>
+          <div class="stat-num">60+</div>
+          <div class="stat-label">Tracker domains blocked</div>
+        </div>
+        <div>
+          <div class="stat-num">30+</div>
+          <div class="stat-label">Tracking params stripped</div>
+        </div>
+        <div>
+          <div class="stat-num">0</div>
+          <div class="stat-label">Telemetry calls</div>
+        </div>
+        <div>
+          <div class="stat-num">100%</div>
+          <div class="stat-label">Local AI — no cloud</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Privacy Features -->
+<section id="privacy">
+  <div class="container">
+    <div class="section-tag reveal">Privacy & Security</div>
+    <h2 class="reveal">Built for the paranoid.<br>Good for everyone.</h2>
+    <p class="section-sub reveal">Every feature exists to reduce what the internet can learn about you — without making the browser annoying to use.</p>
+
+    <div class="privacy-grid">
+
+      <div class="privacy-card reveal">
+        <div class="card-icon">🛡</div>
+        <div class="card-title">Ad & Tracker Blocking</div>
+        <div class="card-body">60+ known tracker and ad network domains are blocked before requests leave your machine. A live counter in the navbar shows you exactly how many requests have been blocked in your session.</div>
+      </div>
+
+      <div class="privacy-card reveal">
+        <div class="card-icon">🔗</div>
+        <div class="card-title">Tracking Parameter Stripping</div>
+        <div class="card-body">UTM tags, <code style="font-family:var(--font-mono);font-size:11px;color:#6666aa">fbclid</code>, <code style="font-family:var(--font-mono);font-size:11px;color:#6666aa">gclid</code>, <code style="font-family:var(--font-mono);font-size:11px;color:#6666aa">msclkid</code>, and 30+ other tracking query parameters are stripped from every URL before the request goes out. Sites never see where you came from.</div>
+      </div>
+
+      <div class="privacy-card reveal">
+        <div class="card-icon">📡</div>
+        <div class="card-title">WebRTC Leak Protection</div>
+        <div class="card-body">WebRTC is restricted to public interfaces only, preventing your real local IP address from leaking to websites — even when using a VPN.</div>
+        <div class="card-tag always">Always on</div>
+      </div>
+
+      <div class="privacy-card reveal">
+        <div class="card-icon">🎨</div>
+        <div class="card-title">Canvas Fingerprint Resistance</div>
+        <div class="card-body">Per-session noise is injected into canvas pixel reads, WebGL renderer strings, and AudioContext data. Your browser fingerprint changes every restart, making cross-site tracking by fingerprint ineffective.</div>
+      </div>
+
+      <div class="privacy-card reveal">
+        <div class="card-icon">🌐</div>
+        <div class="card-title">DNS-over-HTTPS</div>
+        <div class="card-body">Encrypt your DNS queries so your ISP can't see which domains you're visiting. Choose from Cloudflare, Google, Quad9, AdGuard, or NextDNS — all free, no account required.</div>
+      </div>
+
+      <div class="privacy-card reveal">
+        <div class="card-icon">🔍</div>
+        <div class="card-title">SearxNG Integration</div>
+        <div class="card-body">Seren uses SearxNG as its default search engine — a self-hostable metasearch engine that doesn't track queries, build profiles, or sell your searches to advertisers.</div>
+      </div>
+
+      <div class="privacy-card wide reveal">
+        <div class="card-icon">🤖</div>
+        <div class="card-title">Local AI Assistant — No Cloud Required</div>
+        <div class="card-body">The built-in AI sidebar connects to a locally hosted Ollama instance. Your conversations, page context, and queries never leave your machine. No OpenAI. No API keys. No usage logs. If you're not running Ollama locally, the feature simply isn't there — it doesn't phone home.</div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- Philosophy -->
+<section id="philosophy">
+  <div class="container">
+    <div class="section-tag reveal">Philosophy</div>
+    <h2 class="reveal">Privacy shouldn't be<br>a premium feature.</h2>
+
+    <div class="philosophy-layout">
+      <div class="philosophy-text reveal">
+        <p>Most browsers treat privacy as an opt-in. You get tracking by default, and if you care enough to dig through settings, you can disable some of it. <strong>Seren starts from the opposite position.</strong></p>
+        <p>Every default is chosen to minimize exposure. Nothing phones home. No "anonymous" telemetry. No sync to external servers. No built-in accounts. The browser is a tool, not a platform.</p>
+        <p>Seren is built on the belief that <strong>you shouldn't need to understand browser internals</strong> to browse without being profiled. The protection is on by default, the settings are plain English, and nothing is hidden.</p>
+        <p>It's experimental software, honestly. But it's honest software.</p>
+      </div>
+
+      <div class="philosophy-principles reveal">
+        <div class="principle">
+          <div class="principle-num">01</div>
+          <div>
+            <div class="principle-title">Transparent by default</div>
+            <div class="principle-body">The blocked request counter is always visible. You can see what's being blocked and add your own rules.</div>
+          </div>
+        </div>
+        <div class="principle">
+          <div class="principle-num">02</div>
+          <div>
+            <div class="principle-title">Local-first</div>
+            <div class="principle-body">Search, AI, and settings all run locally or on infrastructure you control. Nothing is routed through Seren's servers — there are none.</div>
+          </div>
+        </div>
+        <div class="principle">
+          <div class="principle-num">03</div>
+          <div>
+            <div class="principle-title">No dark patterns</div>
+            <div class="principle-body">No "accept all cookies" popups generated by the browser itself. No nagging to create an account. No recommended content.</div>
+          </div>
+        </div>
+        <div class="principle">
+          <div class="principle-num">04</div>
+          <div>
+            <div class="principle-title">Honest about limitations</div>
+            <div class="principle-body">Seren is experimental and under development. It doesn't claim to be Tor Browser. It just tries to be meaningfully better than the default.</div>
+          </div>
+        </div>
+        <div class="principle">
+          <div class="principle-num">05</div>
+          <div>
+            <div class="principle-title">Configurable, not locked down</div>
+            <div class="principle-body">You can turn off JavaScript, switch DoH providers, or load your own extensions. Privacy is the default, not the ceiling.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Install -->
+<section id="install">
+  <div class="container">
+    <div class="section-tag reveal">Get Started</div>
+    <h2 class="reveal">Up in three commands.</h2>
+    <p class="section-sub reveal">Seren runs directly from Python. No installer, no admin rights, no bloat.</p>
+
+    <div class="install-layout">
+      <div class="steps reveal">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div>
+            <div class="step-title">Prerequisites</div>
+            <div class="step-body">You'll need Python 3.10 or newer. A running SearxNG instance is required for search — you can use the public instance at <code style="font-family:var(--font-mono);font-size:12px;color:#6666aa">25.32.56.63:5000</code> or self-host your own.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div>
+            <div class="step-title">Clone & install dependencies</div>
+            <div class="step-body">Clone the repository and install the two required packages. PyQt6 and PyQt6-WebEngine are the only dependencies.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div>
+            <div class="step-title">Run</div>
+            <div class="step-body">Launch the browser. On first run, open Settings (⚙ or Ctrl+,) and point the SearxNG URL to your instance if you're self-hosting.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">✦</div>
+          <div>
+            <div class="step-title">Optional: AI Assistant</div>
+            <div class="step-body">Install <a href="https://ollama.ai" style="color:#6666aa">Ollama</a> and pull a model (<code style="font-family:var(--font-mono);font-size:12px;color:#6666aa">ollama pull llama3</code>). The sidebar will auto-detect your models. Everything stays local.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="code-block reveal">
+        <div class="code-header">
+          <div class="code-dots">
+            <div class="code-dot"></div>
+            <div class="code-dot"></div>
+            <div class="code-dot"></div>
+          </div>
+          <div class="code-label">terminal</div>
+        </div>
+        <div class="code-body">
+<span class="comment"># Clone the repo</span>
+<span class="prompt">$</span><span class="cmd">https://github.com/TTRPaxel/Seren-Browser</span>
+<span class="prompt">$</span><span class="cmd">cd seren-browser</span>
+&nbsp;
+<span class="comment"># Install dependencies</span>
+<span class="prompt">$</span><span class="cmd">pip install -r requirements.txt</span>
+<span class="out">Successfully installed PyQt6 PyQt6-WebEngine</span>
+&nbsp;
+<span class="comment"># Launch Seren</span>
+<span class="prompt">$</span><span class="cmd">python seren_browser.py</span>
+<span class="out">✓ Seren is running</span>
+<span class="out">✓ Privacy protections active</span>
+<span class="out">✓ Connected to SearxNG</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section id="faq">
+  <div class="container">
+    <div class="section-tag reveal">FAQ</div>
+    <h2 class="reveal">Questions.</h2>
+    <p class="section-sub reveal">Answers to things people might actually ask.</p>
+
+    <div class="faq-list reveal">
+
+      <div class="faq-item">
+        <button class="faq-q">
+          Is Seren actually private, or is it just marketing?
+          <span class="faq-chevron">+</span>
+        </button>
+        <div class="faq-a">
+          Seren makes a genuine effort — WebRTC blocking, canvas noise, tracker blocking, no telemetry. But it's not Tor Browser. Your IP is still visible to every site you visit unless you use a VPN. It's significantly better than Chrome or Edge out of the box, but it's not an anonymity tool. We try to be honest about that distinction.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-q">
+          Why Python? Isn't that slow for a browser?
+          <span class="faq-chevron">+</span>
+        </button>
+        <div class="faq-a">
+          The actual web rendering is done by QtWebEngine, which is Chromium under the hood — so page rendering performance is identical to Chrome. Python only handles the UI shell, settings, and privacy features. In practice you won't notice any difference.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-q">
+          Do I need to run SearxNG myself?
+          <span class="faq-chevron">+</span>
+        </button>
+        <div class="faq-a">
+          No. There's a public SearxNG instance you can use at 25.32.56.63:5000 — just point Seren's search URL there in Settings. Self-hosting is recommended for maximum privacy since it means no one else can see your queries, but it's not required to get started.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-q">
+          Does the AI assistant send anything to the cloud?
+          <span class="faq-chevron">+</span>
+        </button>
+        <div class="faq-a">
+          No. The AI sidebar only connects to your local Ollama instance at localhost:11434. No requests go to OpenAI, Anthropic, or any other external service. If Ollama isn't running, the sidebar simply doesn't work — it doesn't fall back to a cloud API.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-q">
+          Can I use extensions like uBlock Origin?
+          <span class="faq-chevron">+</span>
+        </button>
+        <div class="faq-a">
+          Yes — Seren supports loading unpacked Chromium extensions via the Extensions manager (⧉ button). Download the uBlock Origin Chromium MV3 build, extract the ZIP, and load the folder. Note that QtWebEngine's extension API support varies, so not all extensions will work perfectly.
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-q">
+          Is this affiliated with any company?
+          <span class="faq-chevron">+</span>
+        </button>
+        <div class="faq-a">
+          No. Seren is an independent personal project. It's not affiliated with any browser vendor, search engine, AI company, or commercial entity. It's just a browser someone built because they wanted one that actually respected their privacy.
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-logo">Seren<span>.</span></div>
+    <div class="footer-copy">© 2026 Paxel. All rights reserved.</div>
+    <div class="footer-links">
+      <a href="https://github.com/TTRPaxel/Seren-Browser">GitHub</a>
+      <a href="#privacy">Privacy</a>
+      <a href="#install">Install</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+// ── Scroll reveal ──
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.classList.add('visible');
+      // Stagger children if grid
+      const children = e.target.querySelectorAll('.privacy-card, .principle, .step');
+      children.forEach((c, i) => {
+        c.style.transitionDelay = `${i * 0.07}s`;
+        c.classList.add('reveal', 'visible');
+      });
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+// ── FAQ accordion ──
+document.querySelectorAll('.faq-q').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const item = btn.closest('.faq-item');
+    const isOpen = item.classList.contains('open');
+    document.querySelectorAll('.faq-item.open').forEach(i => i.classList.remove('open'));
+    if (!isOpen) item.classList.add('open');
+  });
+});
+
+// ── Smooth nav highlight ──
+const sections = document.querySelectorAll('section[id]');
+const navLinks = document.querySelectorAll('.nav-links a[href^="#"]');
+window.addEventListener('scroll', () => {
+  let current = '';
+  sections.forEach(s => {
+    if (window.scrollY >= s.offsetTop - 100) current = s.id;
+  });
+  navLinks.forEach(a => {
+    a.style.color = a.getAttribute('href') === '#' + current ? '#c0c0e0' : '';
+  });
+}, { passive: true });
+</script>
+
+</body>
+</html>
